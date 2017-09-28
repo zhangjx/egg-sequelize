@@ -1,6 +1,8 @@
 # egg-sequelize
 
-Sequelize plugin in egg
+[Sequelize](http://sequelizejs.com) plugin for Egg.js.
+
+> NOTE: This plugin just for integrate Sequelize into Egg.js, more documention please visit http://sequelizejs.com.
 
 [![NPM version][npm-image]][npm-url]
 [![build status][travis-image]][travis-url]
@@ -22,16 +24,14 @@ Sequelize plugin in egg
 [download-image]: https://img.shields.io/npm/dm/egg-sequelize.svg?style=flat-square
 [download-url]: https://npmjs.org/package/egg-sequelize
 
-Egg's sequelize plugin.
-
 ## Install
 
 ```bash
 $ npm i --save egg-sequelize
+$ npm install --save mysql2 # For both mysql and mariadb dialects
 
-# And one of the following:
-$ npm install --save pg pg-hstore
-$ npm install --save mysql # For both mysql and mariadb dialects
+# Or use other database backend.
+$ npm install --save pg pg-hstore # PostgreSQL
 $ npm install --save tedious # MSSQL
 ```
 
@@ -39,6 +39,7 @@ $ npm install --save tedious # MSSQL
 ## Usage & configuration
 
 - `config.default.js`
+
 ```js
 exports.sequelize = {
   dialect: 'mysql', // support: mysql, mariadb, postgres, mssql
@@ -49,7 +50,9 @@ exports.sequelize = {
   password: '',
 };
 ```
+
 - `config/plugin.js`
+
 ``` js
 exports.sequelize = {
   enable: true,
@@ -97,20 +100,25 @@ Define a model first.
 module.exports = app => {
   const { STRING, INTEGER, DATE } = app.Sequelize;
 
-  return app.model.define('user', {
+  const User = app.model.define('user', {
     login: STRING,
     name: STRING(30),
     password: STRING(32),
     age: INTEGER,
+    last_sign_in_at: DATE,
     created_at: DATE,
     updated_at: DATE,
-  }, {
-    classMethods: {
-      * findByLogin(login) {
-        return yield this.findOne({ login: login });
-      },
-    },
   });
+
+  User.findByLogin = function* (login) {
+    return yield this.findOne({ login: login });
+  }
+
+  User.prototype.logSignin = function* () {
+    yield this.update({ last_sign_in_at: new Date() });
+  }
+
+  return User;
 };
 
 ```
@@ -125,13 +133,17 @@ module.exports = app => {
       const users = yield this.ctx.model.User.findAll();
       this.ctx.body = users;
     }
+
+    * show() {
+      const user = yield this.ctx.model.User.findByLogin(this.ctx.params.login);
+      yield user.logSignin();
+      this.ctx.body = user;
+    }
   }
 }
 ```
 
 ### Full example
-
-
 
 ```js
 // app/model/post.js
@@ -139,18 +151,18 @@ module.exports = app => {
 module.exports = app => {
   const { STRING, INTEGER, DATE } = app.Sequelize;
 
-  return app.model.define('Post', {
+  const Post = app.model.define('Post', {
     name: STRING(30),
     user_id: INTEGER,
     created_at: DATE,
     updated_at: DATE,
-  }, {
-    classMethods: {
-      associate() {
-        app.model.Post.belongsTo(app.model.User, { as: 'user' });
-      }
-    }
   });
+
+  Post.associate = function() {
+    app.model.Post.belongsTo(app.model.User, { as: 'user' });
+  }
+
+  return Post;
 };
 ```
 
@@ -172,7 +184,8 @@ module.exports = app => {
 
     * show() {
       const post = yield this.ctx.model.Post.findById(this.params.id);
-      const post.user = yield post.getUser();
+      const user = yield post.getUser();
+      post.setDataValue('user', user);
       this.ctx.body = post;
     }
 
@@ -183,6 +196,19 @@ module.exports = app => {
     }
   }
 }
+```
+
+## Sync model to db
+
+Mention, If you want to sync models you defined to db(mysql or etc.), you should put sync operation in `app.js`.
+
+```js
+// {app_root}/app.js
+  module.exports = app => {
+    app.beforeStart(function* () {
+      yield app.model.sync({force: true});
+    });
+  };
 ```
 
 ## Migrations
@@ -213,7 +239,38 @@ or for `production` environment:
 $ NODE_ENV=production npm run migrate:up
 ```
 
-And you may need to read [Sequelize - Migrations](http://docs.sequelizejs.com/en/v3/docs/migrations/) to learn about how to write Migrations.
+Write migrations with **Generator** friendly, you should use `co.wrap` method:
+
+```js
+'use strict';
+const co = require('co');
+
+module.exports = {
+  up: co.wrap(function *(db, Sequelize) {
+    const { STRING, INTEGER, DATE } = Sequelize;
+
+    yield db.createTable('users', {
+      id: { type: INTEGER, primaryKey: true, autoIncrement: true },
+      name: { type: STRING, allowNull: false },
+      email: { type: STRING, allowNull: false },
+      created_at: DATE,
+      updated_at: DATE,
+    });
+
+    yield db.addIndex('users', ['email'], { indicesType: 'UNIQUE' });
+  }),
+
+  down: co.wrap(function *(db, Sequelize) {
+    yield db.dropTable('users');
+  }),
+};
+```
+
+And you may need to read [Sequelize - Migrations](http://docs.sequelizejs.com/manual/tutorial/migrations.html) to learn about how to write Migrations.
+
+## Recommended example
+
+- https://github.com/eggjs/examples/tree/master/sequelize-example/
 
 ## Questions & Suggestions
 

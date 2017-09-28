@@ -1,3 +1,30 @@
+
+3.1.0 / 2017-08-03
+==================
+
+  * deps: update dependencies (#26)
+  * refactor: rewrite cli script with plain js instead of Shell to support multi-platform. (#25)
+  * docs: add a migration example for show up use `co.wrap`. (#24)
+  * docs: fix migration url (#22)
+  * docs: update history (#21)
+
+3.0.1 / 2017-06-19
+==================
+
+  * fix: init associate should after load of models (#20)
+
+3.0.0 / 2017-06-19
+==================
+
+  * feat: Upgrade Sequelize V4. (#18)
+  * docs: add sync docs (#17)
+  * docs(readme): fix the full example with association (#16)
+
+2.1.4 / 2017-05-11
+==================
+
+  * fix(migration): always use production config (#14)
+
 2.1.3 / 2017-05-11
 ==================
 

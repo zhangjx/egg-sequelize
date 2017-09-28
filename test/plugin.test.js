@@ -88,10 +88,10 @@ describe('test/plugin.test.js', () => {
       app.mockCsrf();
 
       yield request(app.callback())
-      .post('/users')
-      .send({
-        name: 'popomore',
-      });
+        .post('/users')
+        .send({
+          name: 'popomore',
+        });
       const user = yield app.model.User.findOne({
         where: { name: 'popomore' },
       });
@@ -104,4 +104,18 @@ describe('test/plugin.test.js', () => {
       assert(res.body.name === 'popomore');
     });
   });
+
+  describe('Associate', () => {
+
+    it('ctx model associate init success', () => {
+      const ctx = app.mockContext();
+      assert.ok(ctx.model);
+      assert.ok(ctx.model.User);
+      assert.ok(ctx.model.User.prototype.hasPosts);
+      assert.ok(ctx.model.Post);
+    });
+
+  });
+
 });
+
